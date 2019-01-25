@@ -10,3 +10,6 @@
 [submodule "addons-oca/project"]
 	path = addons-oca/project
 	url = https://github.com/OCA/project
+[submodule "addons-oca/project-reporting"]
+	path = addons-oca/project-reporting
+	url = https://github.com/OCA/project-reporting
