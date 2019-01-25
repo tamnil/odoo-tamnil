@@ -10,3 +10,6 @@
 [submodule "addons-oca/project-reporting"]
 	path = addons-oca/project-reporting
 	url = https://github.com/OCA/project-reporting
+[submodule "addons-oca/oca-project-agile"]
+	path = addons-oca/oca-project-agile
+	url = https://github.com/modoolar/oca-project-agile
