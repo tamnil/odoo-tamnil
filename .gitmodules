@@ -7,3 +7,6 @@
 [submodule "addons-oca/l10n-brazil"]
 	path = addons-oca/l10n-brazil
 	url = https://github.com/OCA/l10n-brazil
+[submodule "addons-oca/project"]
+	path = addons-oca/project
+	url = https://github.com/OCA/project
