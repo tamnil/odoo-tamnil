@@ -1,1 +1,0 @@
-project/oca_dependencies.txt
