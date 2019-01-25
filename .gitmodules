@@ -4,3 +4,6 @@
 [submodule "addons-oca/oca-project-agile"]
 	path = addons-oca/oca-project-agile
 	url = https://github.com/modoolar/oca-project-agile
+[submodule "addons-oca/l10n-brazil"]
+	path = addons-oca/l10n-brazil
+	url = https://github.com/OCA/l10n-brazil
