@@ -1,9 +1,6 @@
-[submodule "addons-oca/addons-oca/knowledge"]
-	path = addons-oca/addons-oca/knowledge
+[submodule "addons-oca/knowledge"]
+	path = addons-oca/knowledge
 	url = https://github.com/OCA/knowledge
-[submodule "addons-oca/addons-oca/oca-project-agile"]
-	path = addons-oca/addons-oca/oca-project-agile
-	url = https://github.com/modoolar/oca-project-agile
 [submodule "addons-oca/oca-project-agile"]
 	path = addons-oca/oca-project-agile
 	url = https://github.com/modoolar/oca-project-agile
