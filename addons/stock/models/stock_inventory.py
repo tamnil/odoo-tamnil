@@ -3,7 +3,7 @@
 
 from odoo import api, fields, models, _
 from odoo.addons import decimal_precision as dp
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_utils
 
 
@@ -148,13 +148,13 @@ class Inventory(models.Model):
         if self.filter == 'none' and self.product_id and self.location_id and self.lot_id:
             return
         if self.filter not in ('product', 'product_owner') and self.product_id:
-            raise UserError(_('The selected inventory options are not coherent.'))
+            raise ValidationError(_('The selected inventory options are not coherent.'))
         if self.filter != 'lot' and self.lot_id:
-            raise UserError(_('The selected inventory options are not coherent.'))
+            raise ValidationError(_('The selected inventory options are not coherent.'))
         if self.filter not in ('owner', 'product_owner') and self.partner_id:
-            raise UserError(_('The selected inventory options are not coherent.'))
+            raise ValidationError(_('The selected inventory options are not coherent.'))
         if self.filter != 'pack' and self.package_id:
-            raise UserError(_('The selected inventory options are not coherent.'))
+            raise ValidationError(_('The selected inventory options are not coherent.'))
 
     def action_reset_product_qty(self):
         self.mapped('line_ids').write({'product_qty': 0})
@@ -180,7 +180,7 @@ class Inventory(models.Model):
         # tde todo: clean after _generate_moves
         for inventory in self.filtered(lambda x: x.state not in ('done','cancel')):
             # first remove the existing stock moves linked to this inventory
-            inventory.mapped('move_ids').unlink()
+            inventory.with_context(prefetch_fields=False).mapped('move_ids').unlink()
             inventory.line_ids._generate_moves()
 
     def action_cancel_draft(self):
@@ -213,7 +213,7 @@ class Inventory(models.Model):
     def _get_inventory_lines_values(self):
         # TDE CLEANME: is sql really necessary ? I don't think so
         locations = self.env['stock.location'].search([('id', 'child_of', [self.location_id.id])])
-        domain = ' location_id in %s AND active = TRUE'
+        domain = ' sq.location_id in %s AND pp.active'
         args = (tuple(locations.ids),)
 
         vals = []
@@ -225,39 +225,41 @@ class Inventory(models.Model):
 
         # case 0: Filter on company
         if self.company_id:
-            domain += ' AND company_id = %s'
+            domain += ' AND sq.company_id = %s'
             args += (self.company_id.id,)
-        
+
         #case 1: Filter on One owner only or One product for a specific owner
         if self.partner_id:
-            domain += ' AND owner_id = %s'
+            domain += ' AND sq.owner_id = %s'
             args += (self.partner_id.id,)
         #case 2: Filter on One Lot/Serial Number
         if self.lot_id:
-            domain += ' AND lot_id = %s'
+            domain += ' AND sq.lot_id = %s'
             args += (self.lot_id.id,)
         #case 3: Filter on One product
         if self.product_id:
-            domain += ' AND product_id = %s'
+            domain += ' AND sq.product_id = %s'
             args += (self.product_id.id,)
             products_to_filter |= self.product_id
         #case 4: Filter on A Pack
         if self.package_id:
-            domain += ' AND package_id = %s'
+            domain += ' AND sq.package_id = %s'
             args += (self.package_id.id,)
         #case 5: Filter on One product category + Exahausted Products
         if self.category_id:
             categ_products = Product.search([('categ_id', '=', self.category_id.id)])
-            domain += ' AND product_id = ANY (%s)'
+            domain += ' AND sq.product_id = ANY (%s)'
             args += (categ_products.ids,)
             products_to_filter |= categ_products
 
-        self.env.cr.execute("""SELECT product_id, sum(quantity) as product_qty, location_id, lot_id as prod_lot_id, package_id, owner_id as partner_id
-            FROM stock_quant
-            LEFT JOIN product_product
-            ON product_product.id = stock_quant.product_id
+        self.env.cr.execute("""SELECT sq.product_id as product_id, sum(quantity) as product_qty,
+            sq.location_id as location_id, sq.lot_id as prod_lot_id, sq.package_id as package_id,
+            sq.owner_id as partner_id
+            FROM stock_quant sq
+            LEFT JOIN product_product pp
+            ON pp.id = sq.product_id
             WHERE %s
-            GROUP BY product_id, location_id, lot_id, package_id, partner_id """ % domain, args)
+            GROUP BY sq.product_id, sq.location_id, sq.lot_id, sq.package_id, sq.owner_id """ % domain, args)
 
         for product_data in self.env.cr.dictfetchall():
             # replace the None the dictionary by False, because falsy values are tested later on
@@ -310,9 +312,9 @@ class InventoryLine(models.Model):
         domain=[('type', '=', 'product')],
         index=True, required=True)
     product_name = fields.Char(
-        'Product Name', related='product_id.name', store=True, readonly=True)
+        'Product Name', related='product_id.name', store=True, readonly=True, compute_sudo=True)
     product_code = fields.Char(
-        'Product Code', related='product_id.default_code', store=True)
+        'Product Code', related='product_id.default_code', store=True, readonly=True, compute_sudo=True)
     product_uom_id = fields.Many2one(
         'product.uom', 'Product Unit of Measure',
         required=True,
@@ -406,7 +408,7 @@ class InventoryLine(models.Model):
         """
         for line in self:
             if line.product_id.type != 'product':
-                raise UserError(_("You can only adjust stockable products.") + '\n\n%s -> %s' % (line.product_id.display_name, line.product_id.type))
+                raise ValidationError(_("You can only adjust stockable products.") + '\n\n%s -> %s' % (line.product_id.display_name, line.product_id.type))
 
     def _get_quants(self):
         return self.env['stock.quant'].search([
